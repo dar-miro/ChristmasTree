@@ -2,8 +2,8 @@
 
 // Supabase: Project Settings → API. Publishable (anon) ключ можна тримати в коді,
 // безпеку забезпечують політики RLS (sql/schema.sql). service_role сюди НЕ вставляти.
-export const SUPABASE_URL = 'https://XXXX.supabase.co';
-export const SUPABASE_KEY = 'ВАШ_PUBLISHABLE_KEY';
+export const SUPABASE_URL = 'https://grwyjjczjnkueujsthah.supabase.co';
+export const SUPABASE_KEY = 'sb_publishable_3ZCONcC9I0AG8lyAxj0FmA_27vpQt2G';
 
 // 3D
 export const MODEL_URL = './models/tree.glb';
