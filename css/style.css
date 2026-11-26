@@ -24,3 +24,16 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1b33; fon
   position: fixed; bottom: 16px; left: 0; right: 0; text-align: center;
   color: rgba(255,255,255,.7); font-size: 13px; pointer-events: none;
 }
+
+/* Тепла віньєтка по краях — затишніший вигляд */
+#vignette {
+  position: fixed; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(10,5,20,.45) 100%);
+}
+
+/* Затишне віньєтування по краях */
+body::after {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(10,5,15,.55) 100%);
+}
+#banner, #counter, #hint, #status, #error { z-index: 2; }

@@ -4,6 +4,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MODEL_URL, TREE_HEIGHT } from './config.js';
 
+const BG = 0x1b1020; // теплий темний фон за межами кімнати
+
 function buildFallbackTree() {
   const g = new THREE.Group();
   const green = new THREE.MeshStandardMaterial({ color: 0x2e8b57, flatShading: true });
@@ -30,39 +32,37 @@ function fitToScene(obj) {
   obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 }
 
-/** Створює сцену. Повертає об'єкти, потрібні наступним модулям (прикраси, клік по прикрасі). */
+/** Створює сцену. Повертає об'єкти, потрібні наступним модулям (декор, прикраси, клік по прикрасі). */
 export function createTreeScene(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0f1b33);
-  scene.fog = new THREE.Fog(0x0f1b33, 20, 45);
+  scene.background = new THREE.Color(BG);
+  scene.fog = new THREE.Fog(BG, 30, 70);
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
   camera.position.set(0, TREE_HEIGHT * 0.7, TREE_HEIGHT * 1.8);
 
-  scene.add(new THREE.HemisphereLight(0xcfe4ff, 0x2a3a2a, 1.1));
-  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  // Тепле світло: загальне, «з вікна» з тінями та м'яка лампа збоку
+  scene.add(new THREE.HemisphereLight(0xffe4c4, 0x3a2418, 1.0));
+  const sun = new THREE.DirectionalLight(0xffd9a8, 1.8);
   sun.position.set(5, 10, 6);
   sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024);
+  Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
   scene.add(sun);
-
-  const ground = new THREE.Mesh(
-    new THREE.CircleGeometry(12, 64),
-    new THREE.MeshStandardMaterial({ color: 0xf2f6ff, roughness: 1 })
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
+  const lamp = new THREE.PointLight(0xffb36b, 30, 0, 2);
+  lamp.position.set(-4, 4, 4);
+  scene.add(lamp);
 
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, TREE_HEIGHT * 0.45, 0);
   controls.enableDamping = true;
   controls.enablePan = false;
   controls.minDistance = 3;
-  controls.maxDistance = 18;
+  controls.maxDistance = 14;               // камера завжди всередині кімнати
   controls.maxPolarAngle = Math.PI / 2 - 0.05;
   controls.update();
 
@@ -95,7 +95,16 @@ export function createTreeScene(canvas) {
   window.addEventListener('resize', resize);
   resize();
 
-  renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+  // Анімація: модулі підписуються через onFrame((dt, t) => …)
+  const updaters = [];
+  const onFrame = fn => updaters.push(fn);
+  const clock = new THREE.Clock();
+  renderer.setAnimationLoop(() => {
+    const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+    for (const f of updaters) f(dt, t);
+    controls.update();
+    renderer.render(scene, camera);
+  });
 
-  return { scene, camera, controls, tree, ornamentsGroup, loadModel };
+  return { scene, camera, controls, tree, ornamentsGroup, loadModel, onFrame };
 }
