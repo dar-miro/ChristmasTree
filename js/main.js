@@ -1,5 +1,6 @@
 // Точка входу: збирає сцену, базу даних і права доступу.
 import { createTreeScene } from './tree.js';
+import { addDecor } from './decor.js';
 import { ensureSession, checkIsAdmin, fetchOrnaments, friendlyError } from './supabase.js';
 import { getPeriodState, canCreate, findMyOrnament } from './permissions.js';
 
@@ -65,7 +66,7 @@ async function init() {
   renderPeriodBanner();
   showStatus('Завантаження ялинки…');
 
-  const modelOk = await state.three.loadModel();
+  const [modelOk] = await Promise.all([state.three.loadModel(), addDecor(state.three)]);
   if (!modelOk) showStatus('Модель не знайдено — показано тимчасову ялинку');
 
   await loadData();
