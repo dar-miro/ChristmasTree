@@ -24,7 +24,7 @@ export const DECOR = {
   floor: { url: './models/floor.glb', by: 'width', size: 44, lift: 0 },     // паркет
   room:  { url: './models/room.glb',  by: 'width', size: 44, lift: 0 },     // стіни/фон кімнати
   rug:   { url: './models/rug.glb',   by: 'width', size: 8,  lift: 0.01 },  // килим під ялинкою
-  gifts: { url: './models/gifts.glb', by: 'width', size: 8,  lift: 0.04 },  // подарунки
+  gifts: { url: './models/gifts.glb', by: 'width', size: 1,  lift: 0.04 },  // подарунки
 };
 
 // Сніг: count — кількість сніжинок (на малих екранах вдвічі менше)
