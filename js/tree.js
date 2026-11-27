@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MODELS, MODEL_SCALE, CAMERA, LIGHT_SCALE, TONE_MAPPING } from './scene-config.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 const BG = 0x1b1020;
 
@@ -52,7 +53,9 @@ export function createTreeScene(canvas) {
   /** Завантажує models/tree.glb. Повертає true/false. Нічого не генерує автоматично. */
   async function loadModel() {
     try {
-      const { scene: obj } = await new GLTFLoader().loadAsync(MODELS.tree);
+      const loader = new GLTFLoader();
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      const { scene: obj } = await loader.loadAsync(MODELS.tree);
       obj.scale.setScalar(MODEL_SCALE);
       enableShadows(obj);
       tree.add(obj);
