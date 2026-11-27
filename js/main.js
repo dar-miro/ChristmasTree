@@ -66,10 +66,13 @@ async function init() {
   renderPeriodBanner();
   showStatus('Завантаження ялинки…');
 
-  const [modelOk] = await Promise.all([state.three.loadModel(), addDecor(state.three)]);
-  if (!modelOk) showStatus('Модель не знайдено — показано тимчасову ялинку');
+  const [treeOk, sceneOk] = await Promise.all([state.three.loadModel(), addDecor(state.three)]);
+  const missing = [];
+  if (!treeOk) missing.push('models/tree.glb');
+  if (!sceneOk) missing.push('models/scene.glb');
 
   await loadData();
+  if (missing.length) showStatus('Не знайдено файли: ' + missing.join(', '));
 
   // Перемикання в режим перегляду без перезавантаження сторінки
   setInterval(() => {

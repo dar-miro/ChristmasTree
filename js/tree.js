@@ -1,34 +1,12 @@
-// 3D-сцена: ялинка, світло, камера, керування.
+// 3D-сцена: світло, камера, керування, завантаження ялинки (models/tree.glb).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MODEL_URL, TREE_HEIGHT } from './config.js';
+import { MODELS, MODEL_SCALE, CAMERA, LIGHT_SCALE, TONE_MAPPING } from './scene-config.js';
 
-const BG = 0x1b1020; // теплий темний фон за межами кімнати
+const BG = 0x1b1020;
 
-function buildFallbackTree() {
-  const g = new THREE.Group();
-  const green = new THREE.MeshStandardMaterial({ color: 0x2e8b57, flatShading: true });
-  const brown = new THREE.MeshStandardMaterial({ color: 0x6b4423, flatShading: true });
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 1, 12), brown);
-  trunk.position.y = 0.5;
-  g.add(trunk);
-  for (const [r, h, y] of [[2.2, 2.2, 1.0], [1.8, 2.0, 2.2], [1.4, 1.8, 3.3], [1.0, 1.6, 4.3]]) {
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10), green);
-    cone.position.y = y + h / 2 - 0.2;
-    g.add(cone);
-  }
-  return g;
-}
-
-function fitToScene(obj) {
-  const box = new THREE.Box3().setFromObject(obj);
-  obj.scale.multiplyScalar(TREE_HEIGHT / box.getSize(new THREE.Vector3()).y);
-  box.setFromObject(obj);
-  const c = box.getCenter(new THREE.Vector3());
-  obj.position.x -= c.x;
-  obj.position.z -= c.z;
-  obj.position.y -= box.min.y;
+function enableShadows(obj) {
   obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 }
 
@@ -37,53 +15,66 @@ export function createTreeScene(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
+  if (TONE_MAPPING) renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(BG);
-  scene.fog = new THREE.Fog(BG, 30, 70);
 
-  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(0, TREE_HEIGHT * 0.7, TREE_HEIGHT * 1.8);
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+  camera.position.set(0, 4, 11);
 
-  // Тепле світло: загальне, «з вікна» з тінями та м'яка лампа збоку
-  scene.add(new THREE.HemisphereLight(0xffe4c4, 0x3a2418, 1.0));
-  const sun = new THREE.DirectionalLight(0xffd9a8, 1.8);
+  // Тепле світло з коду (LIGHT_SCALE = 0 вимикає його)
+  scene.add(new THREE.HemisphereLight(0xffe4c4, 0x3a2418, 1.0 * LIGHT_SCALE));
+  const sun = new THREE.DirectionalLight(0xffd9a8, 1.8 * LIGHT_SCALE);
   sun.position.set(5, 10, 6);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(1024, 1024);
-  Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 40 });
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 50 });
   scene.add(sun);
-  const lamp = new THREE.PointLight(0xffb36b, 30, 0, 2);
+  const lamp = new THREE.PointLight(0xffb36b, 30 * LIGHT_SCALE, 0, 2);
   lamp.position.set(-4, 4, 4);
   scene.add(lamp);
 
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0, TREE_HEIGHT * 0.45, 0);
+  controls.target.set(0, 2.7, 0);
   controls.enableDamping = true;
   controls.enablePan = false;
-  controls.minDistance = 3;
-  controls.maxDistance = 14;               // камера завжди всередині кімнати
+  controls.minDistance = CAMERA.min;
+  controls.maxDistance = CAMERA.max;
   controls.maxPolarAngle = Math.PI / 2 - 0.05;
   controls.update();
 
   const tree = new THREE.Group();            // ялинка
   const ornamentsGroup = new THREE.Group();  // сюди пізніше додаватимемо прикраси
+  const slots = [];                          // місця для прикрас: [{ name, position }]
   scene.add(tree, ornamentsGroup);
 
-  /** Завантажує модель. Повертає true, якщо завантажилась вона, а не запасна ялинка. */
-  function loadModel() {
-    return new Promise(resolve => {
-      new GLTFLoader().load(MODEL_URL,
-        gltf => { fitToScene(gltf.scene); tree.add(gltf.scene); resolve(true); },
-        undefined,
-        err => {
-          console.warn('Модель не завантажилась, запасна ялинка:', err);
-          const fb = buildFallbackTree();
-          fitToScene(fb);
-          tree.add(fb);
-          resolve(false);
-        });
-    });
+  /** Завантажує models/tree.glb. Повертає true/false. Нічого не генерує автоматично. */
+  async function loadModel() {
+    try {
+      const { scene: obj } = await new GLTFLoader().loadAsync(MODELS.tree);
+      obj.scale.setScalar(MODEL_SCALE);
+      enableShadows(obj);
+      tree.add(obj);
+      tree.updateMatrixWorld(true);
+
+      // Камера підлаштовується під висоту ялинки
+      const size = new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+      controls.target.set(0, size.y * 0.45, 0);
+      camera.position.set(0, size.y * 0.7, size.y * 1.8);
+      controls.update();
+
+      // Порожні об'єкти slot_* з Blender → координати місць для прикрас
+      obj.traverse(o => {
+        if (/^slot/i.test(o.name)) slots.push({ name: o.name, position: o.getWorldPosition(new THREE.Vector3()) });
+      });
+      slots.sort((a, b) => a.name.localeCompare(b.name));
+      console.log(`Ялинка: ${size.x.toFixed(2)} × ${size.y.toFixed(2)} × ${size.z.toFixed(2)} м, місць для прикрас: ${slots.length}`);
+      return true;
+    } catch (err) {
+      console.warn('Не вдалося завантажити', MODELS.tree, err);
+      return false;
+    }
   }
 
   function resize() {
@@ -106,5 +97,5 @@ export function createTreeScene(canvas) {
     renderer.render(scene, camera);
   });
 
-  return { scene, camera, controls, tree, ornamentsGroup, loadModel, onFrame };
+  return { scene, camera, controls, tree, ornamentsGroup, slots, loadModel, onFrame };
 }
