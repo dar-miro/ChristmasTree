@@ -2,13 +2,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { MODELS, MODEL_SCALE, CAMERA, LIGHT_SCALE, TONE_MAPPING } from './scene-config.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { MODELS, MODEL_SCALE, CAMERA, LIGHT_SCALE, TONE_MAPPING } from './scene-config.js';
 
 const BG = 0x1b1020;
 
 function enableShadows(obj) {
-  obj.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  obj.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
 }
 
 /** Створює сцену. Повертає об'єкти, потрібні наступним модулям (декор, прикраси, клік по прикрасі). */
@@ -16,6 +21,7 @@ export function createTreeScene(canvas) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   if (TONE_MAPPING) renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
   const scene = new THREE.Scene();
@@ -24,15 +30,21 @@ export function createTreeScene(canvas) {
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
   camera.position.set(0, 4, 11);
 
-  // Тепле світло з коду (LIGHT_SCALE = 0 вимикає його)
-  scene.add(new THREE.HemisphereLight(0xffe4c4, 0x3a2418, 1.0 * LIGHT_SCALE));
-  const sun = new THREE.DirectionalLight(0xffd9a8, 1.8 * LIGHT_SCALE);
+  // Світло з коду (LIGHT_SCALE = 0 вимикає його).
+  // Колір світла майже нейтральний, щоб сніг лишався білим.
+  scene.add(new THREE.HemisphereLight(0xfff4e6, 0x4a3a40, 1.0 * LIGHT_SCALE));
+
+  const sun = new THREE.DirectionalLight(0xfff1dd, 1.8 * LIGHT_SCALE);
   sun.position.set(5, 10, 6);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 50 });
+  sun.shadow.mapSize.set(4096, 4096);
+  sun.shadow.bias = -0.0005;      // прибирає смужки (shadow acne)
+  sun.shadow.normalBias = 0.04;   // додатково для заокруглених поверхонь
+  sun.shadow.radius = 2;
+  Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 });
   scene.add(sun);
-  const lamp = new THREE.PointLight(0xffb36b, 30 * LIGHT_SCALE, 0, 2);
+
+  const lamp = new THREE.PointLight(0xffc48a, 20 * LIGHT_SCALE, 0, 2);
   lamp.position.set(-4, 4, 4);
   scene.add(lamp);
 

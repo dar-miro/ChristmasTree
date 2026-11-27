@@ -1,6 +1,7 @@
 // Точка входу: збирає сцену, базу даних і права доступу.
 import { createTreeScene } from './tree.js';
 import { addDecor } from './decor.js';
+import { renderOrnaments } from './ornaments.js';
 import { ensureSession, checkIsAdmin, fetchOrnaments, friendlyError } from './supabase.js';
 import { getPeriodState, canCreate, findMyOrnament } from './permissions.js';
 
@@ -50,8 +51,8 @@ async function loadData() {
     state.isAdmin = await checkIsAdmin(state.user.id);
     state.ornaments = await fetchOrnaments();
     renderCounter();
+    renderOrnaments(state.three, state.ornaments); // TREE-02
     hideStatus();
-    // Тут з'явиться: відображення state.ornaments на ялинці (TREE-02)
     console.log('Користувач:', state.user.id, '| адмін:', state.isAdmin,
       '| може створити:', canCreate(state.periodState, findMyOrnament(state.ornaments, state.user)));
   } catch (e) {
