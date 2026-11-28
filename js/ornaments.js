@@ -2,8 +2,14 @@
 // Поки що всі форми малюються як куля; інші форми додамо пізніше.
 import * as THREE from 'three';
 import { SLOTS } from './slots-config.js';
+import { PATTERN_IDS, drawPattern } from './patterns.js';
+import { ORNAMENT_RADIUS } from './scene-config.js';
 
-const RADIUS = 0.2;
+const RADIUS = ORNAMENT_RADIUS;
+const K = RADIUS / 0.2;   // множник для кришечки й петельки
+
+const TEX_W = 512, TEX_H = 256, TEX_CELL = 32;   // 16 клітинок по колу кульки
+const HEX = /^#[0-9a-f]{6}$/i;
 const gold = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.3 });
 
 /** Резервні місця: спіраль по конусу, якщо слотів немає ніде */
@@ -40,16 +46,33 @@ function getSlots(three) {
   return fallbackSlots(three.tree);
 }
 
+/** Текстура кульки: фон + орнамент. Повертає null, якщо орнаменту немає або дані некоректні. */
+function makePatternTexture(row) {
+  if (!row.pattern || !PATTERN_IDS.has(row.pattern)) return null;
+  if (!HEX.test(row.background_color) || !HEX.test(row.pattern_color || '')) return null;
+  const c = document.createElement('canvas');
+  c.width = TEX_W;
+  c.height = TEX_H;
+  drawPattern(c.getContext('2d'), TEX_W, TEX_H, row.pattern, row.background_color, row.pattern_color, TEX_CELL);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}
+
 function makeBall(row) {
   const g = new THREE.Group();
-  const ball = new THREE.Mesh(
-    new THREE.SphereGeometry(RADIUS, 32, 24),
-    new THREE.MeshStandardMaterial({ color: row.background_color, metalness: 0.3, roughness: 0.25 })
+  const map = makePatternTexture(row);
+  const material = new THREE.MeshStandardMaterial(
+    map
+      ? { map, color: 0xffffff, metalness: 0.3, roughness: 0.25 }
+      : { color: row.background_color, metalness: 0.3, roughness: 0.25 }
   );
-  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.07, 16), gold);
-  cap.position.y = RADIUS + 0.02;
-  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.01, 8, 16), gold);
-  loop.position.y = RADIUS + 0.09;
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 32, 24), material);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * K, 0.06 * K, 0.07 * K, 16), gold);
+  cap.position.y = RADIUS + 0.02 * K;
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.04 * K, 0.01 * K, 8, 16), gold);
+  loop.position.y = RADIUS + 0.09 * K;
   g.add(ball, cap, loop);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   g.userData.ornament = row;   // знадобиться для кліку (VIEW-01…04)
@@ -62,7 +85,10 @@ function clearGroup(group) {
     child.traverse(o => {
       if (o.isMesh) {
         o.geometry.dispose();
-        if (o.material !== gold) o.material.dispose();
+        if (o.material !== gold) {
+          if (o.material.map) o.material.map.dispose();
+          o.material.dispose();
+        }
       }
     });
   }
@@ -80,4 +106,19 @@ export function renderOrnaments(three, ornaments) {
     mesh.position.copy(slots[i].position);
     three.ornamentsGroup.add(mesh);
   });
+}
+/** Каркасний «привид» прикраси (кулька + кришечка + петелька) для редактора слотів. */
+export function makeGhost(color = 0xffe14d) {
+  const mat = new THREE.MeshBasicMaterial({
+    color, wireframe: true, depthTest: false, transparent: true, opacity: 0.8,
+  });
+  const g = new THREE.Group();
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 20, 14), mat);
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * K, 0.06 * K, 0.07 * K, 12), mat);
+  cap.position.y = RADIUS + 0.02 * K;
+  const loop = new THREE.Mesh(new THREE.TorusGeometry(0.04 * K, 0.01 * K, 6, 12), mat);
+  loop.position.y = RADIUS + 0.09 * K;
+  g.add(ball, cap, loop);
+  g.traverse(o => { o.renderOrder = 1000; });
+  return g;
 }

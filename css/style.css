@@ -73,3 +73,25 @@ body::after {
 .ed-buttons button { padding: 9px 16px; border: 0; border-radius: 8px; cursor: pointer; font-size: 14px; }
 #ed-submit { background: #2a9d8f; color: #fff; font-weight: 600; }
 #ed-submit:disabled { opacity: .6; cursor: default; }
+/* ---------- Орнаменти в редакторі ---------- */
+#ed-preview { display: block; }
+#ed-colors .sw, #ed-pcolors .sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+#ed-colors .sw.sel, #ed-pcolors .sw.sel { border-color: #fff; }
+.palette { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.palette input[type=color] { width: 34px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
+
+.dd { position: relative; margin-bottom: 12px; }
+.dd-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box;
+  padding: 6px 10px; border: 1px solid #3c4a70; border-radius: 8px;
+  background: #121c36; color: #fff; font: 14px system-ui; cursor: pointer; text-align: left;
+}
+.dd-item:hover, .dd-item.sel { background: #1b2a50; }
+.dd-icon { width: 32px; height: 32px; border-radius: 6px; flex: none; }
+.dd-arrow { margin-left: auto; opacity: .7; }
+#ed-pat-list {
+  position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; z-index: 6;
+  max-height: 220px; overflow: auto; background: #1f2b4a; border: 1px solid #3c4a70; border-radius: 8px;
+  display: flex; flex-direction: column; gap: 2px; padding: 4px;
+}
+#ed-pat-list.hidden { display: none !important; }

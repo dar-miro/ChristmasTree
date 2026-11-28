@@ -1,9 +1,9 @@
 // Режим розмітки місць для прикрас (відкривається за адресою з ?edit).
 import * as THREE from 'three';
 import { SLOTS } from './slots-config.js';
+import { makeGhost } from './ornaments.js';
 
 const OFFSET = 0.12;          // наскільки відсунути точку від поверхні при кліку
-const BALL_R = 0.2;           // радіус справжньої кульки (для каркасного контуру)
 const DRAFT_KEY = 'slots-draft-v1';
 const AXES = [
   { key: 0, name: 'X', color: '#ff6b6b' },
@@ -49,17 +49,11 @@ export function enableSlotPicker(three) {
   const matNormal = new THREE.MeshBasicMaterial({ color: 0xff3fa4, depthTest: false, transparent: true, opacity: 0.9 });
   const matSel = new THREE.MeshBasicMaterial({ color: 0xffe14d, depthTest: false });
 
-  const ring = new THREE.Mesh(
-    new THREE.SphereGeometry(BALL_R, 20, 14),
-    new THREE.MeshBasicMaterial({ color: 0xffe14d, wireframe: true, depthTest: false, transparent: true, opacity: 0.55 })
-  );
-  ring.renderOrder = 1000;
-  overlay.add(ring);
+  overlay.add(makeGhost());   // кулька + кришечка + петелька, як у справжньої прикраси
   [[0xff4d4d, [1, 0, 0]], [0x4dff4d, [0, 1, 0]], [0x4d8dff, [0, 0, 1]]].forEach(([c, d]) => {
     const v = new THREE.Vector3(...d).multiplyScalar(0.6);
     const g = new THREE.BufferGeometry().setFromPoints([v.clone().negate(), v]);
     const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: c, depthTest: false }));
-    l.renderOrder = 1000;
     overlay.add(l);
   });
 

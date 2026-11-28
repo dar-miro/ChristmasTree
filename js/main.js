@@ -7,6 +7,7 @@ import { ensureSession, checkIsAdmin, fetchOrnaments, friendlyError } from './su
 import { getPeriodState, canCreate, findMyOrnament } from './permissions.js';
 
 const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
 
 // Спільний стан застосунку. Наступні модулі (редактор, прикраси) читатимуть його.
 export const state = {
@@ -46,6 +47,10 @@ function renderCounter() {
   c.textContent = `Прикрас на ялинці: ${state.ornaments.length}`;
   c.classList.remove('hidden');
 }
+function redraw() {
+  renderCounter();
+  renderOrnaments(state.three, state.ornaments); // TREE-02
+}
 /** Кнопка «Створити прикрасу»: лише в період активності й коли власної прикраси ще немає */
 function updateCreateButton() {
   const available = !!state.user &&
@@ -59,8 +64,7 @@ async function loadData() {
     state.user = await ensureSession();
     state.isAdmin = await checkIsAdmin(state.user.id);
     state.ornaments = await fetchOrnaments();
-    renderCounter();
-    renderOrnaments(state.three, state.ornaments); // TREE-02
+    redraw();
     updateCreateButton();
     hideStatus();
     console.log('Користувач:', state.user.id, '| адмін:', state.isAdmin,
@@ -77,8 +81,7 @@ async function init() {
   editor = initEditor({
     onCreated: row => {
       state.ornaments.push(row);
-      renderCounter();
-      renderOrnaments(state.three, state.ornaments);
+      redraw();
       updateCreateButton();
     },
   });
@@ -93,8 +96,7 @@ async function init() {
   await loadData();
   if (missing.length) showStatus('Не знайдено файли: ' + missing.join(', '));
 
-  // Службові режими: ?edit — розмітка місць, ?light — підбір світла (можна обидва: ?edit&light)
-  const params = new URLSearchParams(location.search);
+  // Службові режими: ?edit — розмітка місць, ?light — підбір світла
   if (params.has('edit')) (await import('./slot-picker.js')).enableSlotPicker(state.three);
   if (params.has('light')) (await import('./light-panel.js')).enableLightPanel(state.three);
 

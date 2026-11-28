@@ -15,3 +15,5 @@ export const TONE_MAPPING = true; // наближає кольори до Blende
 
 // Сніг: count — кількість сніжинок (на малих екранах вдвічі менше), area — радіус, height — висота падіння
 export const SNOW = { count: 900, area: 11, height: 12 };
+
+export const ORNAMENT_RADIUS = 0.12;  // радіус кульки в метрах (було 0.2). Міняйте тут
