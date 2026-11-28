@@ -2,6 +2,8 @@
 import { createTreeScene } from './tree.js';
 import { addDecor } from './decor.js';
 import { renderOrnaments } from './ornaments.js';
+import { enableSlotPicker } from './slot-picker.js';
+import { enableLightPanel } from './light-panel.js';
 import { ensureSession, checkIsAdmin, fetchOrnaments, friendlyError } from './supabase.js';
 import { getPeriodState, canCreate, findMyOrnament } from './permissions.js';
 
@@ -74,6 +76,11 @@ async function init() {
 
   await loadData();
   if (missing.length) showStatus('Не знайдено файли: ' + missing.join(', '));
+
+  // Службові режими: ?edit — розмітка місць, ?light — підбір світла (можна обидва: ?edit&light)
+  const params = new URLSearchParams(location.search);
+  if (params.has('edit')) enableSlotPicker(state.three);
+  if (params.has('light')) enableLightPanel(state.three);
 
   // Перемикання в режим перегляду без перезавантаження сторінки
   setInterval(() => {

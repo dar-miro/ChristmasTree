@@ -3,9 +3,17 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { MODELS, MODEL_SCALE, CAMERA, LIGHT_SCALE, TONE_MAPPING } from './scene-config.js';
+import { MODELS, MODEL_SCALE, CAMERA } from './scene-config.js';
+import { LIGHTS } from './light-config.js';
 
-const BG = 0x1b1020;
+const TONE = {
+  None: THREE.NoToneMapping,
+  Linear: THREE.LinearToneMapping,
+  Reinhard: THREE.ReinhardToneMapping,
+  Cineon: THREE.CineonToneMapping,
+  ACES: THREE.ACESFilmicToneMapping,
+  AgX: THREE.AgXToneMapping,
+};
 
 function enableShadows(obj) {
   obj.traverse(o => {
@@ -22,32 +30,61 @@ export function createTreeScene(canvas) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  if (TONE_MAPPING) renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(BG);
+  scene.background = new THREE.Color(LIGHTS.background);
 
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
   camera.position.set(0, 4, 11);
 
-  // Світло з коду (LIGHT_SCALE = 0 вимикає його).
-  // Колір світла майже нейтральний, щоб сніг лишався білим.
-  scene.add(new THREE.HemisphereLight(0xfff4e6, 0x4a3a40, 1.0 * LIGHT_SCALE));
+  // ---------- Світло ----------
+  const lightCfg = structuredClone(LIGHTS);   // «жива» копія, її змінює панель ?light
 
-  const sun = new THREE.DirectionalLight(0xfff1dd, 1.8 * LIGHT_SCALE);
-  sun.position.set(5, 10, 6);
-  sun.castShadow = true;
+  const hemi = new THREE.HemisphereLight();
+  const sun = new THREE.DirectionalLight();
   sun.shadow.mapSize.set(4096, 4096);
   sun.shadow.bias = -0.0005;      // прибирає смужки (shadow acne)
-  sun.shadow.normalBias = 0.04;   // додатково для заокруглених поверхонь
+  sun.shadow.normalBias = 0.04;
   sun.shadow.radius = 2;
   Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 });
-  scene.add(sun);
+  const fill = new THREE.DirectionalLight();
+  const rim = new THREE.DirectionalLight();
+  const lamp = new THREE.PointLight(0xffffff, 1, 0, 2);
+  const lights = { hemi, sun, fill, rim, lamp };
+  scene.add(hemi, sun, fill, rim, lamp);
 
-  const lamp = new THREE.PointLight(0xffc48a, 20 * LIGHT_SCALE, 0, 2);
-  lamp.position.set(-4, 4, 4);
-  scene.add(lamp);
+  let lastTone = null;
+  function applyLights() {
+    const c = lightCfg;
+    renderer.toneMapping = TONE[c.toneMapping] ?? THREE.NoToneMapping;
+    renderer.toneMappingExposure = c.exposure;
+    scene.background.set(c.background);
 
+    const set = (light, o) => {
+      light.visible = o.on;
+      light.intensity = o.intensity;
+      light.color.set(o.color);
+      if (o.x !== undefined) light.position.set(o.x, o.y, o.z);
+    };
+    set(hemi, c.hemi);
+    hemi.groundColor.set(c.hemi.ground);
+    set(sun, c.sun);
+    sun.castShadow = c.sun.shadows;
+    set(fill, c.fill);
+    set(rim, c.rim);
+    set(lamp, c.lamp);
+
+    // Зміна тон-мапінгу вимагає перекомпіляції матеріалів
+    if (lastTone !== c.toneMapping) {
+      lastTone = c.toneMapping;
+      scene.traverse(o => {
+        if (o.material) [].concat(o.material).forEach(m => { m.needsUpdate = true; });
+      });
+    }
+  }
+  applyLights();
+
+  // ---------- Камера ----------
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, 2.7, 0);
   controls.enableDamping = true;
@@ -112,5 +149,6 @@ export function createTreeScene(canvas) {
     renderer.render(scene, camera);
   });
 
-  return { scene, camera, controls, tree, ornamentsGroup, slots, loadModel, onFrame };
+  return { scene, camera, controls, tree, ornamentsGroup, slots, loadModel, onFrame,
+           lights, lightCfg, applyLights };
 }

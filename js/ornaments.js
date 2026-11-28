@@ -1,11 +1,12 @@
 // Відображення прикрас на ялинці (TREE-02).
 // Поки що всі форми малюються як куля; інші форми додамо пізніше.
 import * as THREE from 'three';
+import { SLOTS } from './slots-config.js';
 
 const RADIUS = 0.2;
 const gold = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.3 });
 
-/** Резервні місця: спіраль по конусу, якщо в моделі немає slot_* */
+/** Резервні місця: спіраль по конусу, якщо слотів немає ніде */
 function fallbackSlots(treeGroup, count = 12) {
   treeGroup.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(treeGroup);
@@ -14,17 +15,29 @@ function fallbackSlots(treeGroup, count = 12) {
   const maxR = Math.max(size.x, size.z) / 2;
   const slots = [];
   for (let i = 0; i < count; i++) {
-    const t = (i + 0.5) / count;                       // 0..1 знизу догори
+    const t = (i + 0.5) / count;
     const y = box.min.y + size.y * (0.12 + 0.68 * t);
-    const k = 1 - (y - box.min.y) / size.y;            // конус звужується догори
+    const k = 1 - (y - box.min.y) / size.y;
     const r = maxR * k * 0.95 + 0.1;
-    const a = i * 2.399963;                            // золотий кут
+    const a = i * 2.399963;
     slots.push({
       name: 'auto_' + String(i + 1).padStart(2, '0'),
       position: new THREE.Vector3(center.x + Math.cos(a) * r, y, center.z + Math.sin(a) * r),
     });
   }
   return slots;
+}
+
+/** Пріоритет: slots-config.js → slot_* з моделі → автоматичні */
+function getSlots(three) {
+  if (SLOTS.length) {
+    return SLOTS.map((p, i) => ({
+      name: 'slot_' + String(i + 1).padStart(2, '0'),
+      position: new THREE.Vector3(p[0], p[1], p[2]),
+    }));
+  }
+  if (three.slots.length) return three.slots;
+  return fallbackSlots(three.tree);
 }
 
 function makeBall(row) {
@@ -58,11 +71,13 @@ function clearGroup(group) {
 /** Малює всі прикраси з бази. Викликається після кожної зміни списку. */
 export function renderOrnaments(three, ornaments) {
   clearGroup(three.ornamentsGroup);
-  const slots = three.slots.length ? three.slots : fallbackSlots(three.tree);
-  ornaments.forEach((row, i) => {
-    const slot = slots[i % slots.length];
+  const slots = getSlots(three);
+  if (ornaments.length > slots.length) {
+    console.warn(`Прикрас (${ornaments.length}) більше, ніж місць (${slots.length}). Зайві не показано.`);
+  }
+  ornaments.slice(0, slots.length).forEach((row, i) => {
     const mesh = makeBall(row);
-    mesh.position.copy(slot.position);
+    mesh.position.copy(slots[i].position);
     three.ornamentsGroup.add(mesh);
   });
 }
