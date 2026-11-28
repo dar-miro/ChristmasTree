@@ -37,3 +37,39 @@ body::after {
   background: radial-gradient(ellipse at center, transparent 55%, rgba(10,5,15,.55) 100%);
 }
 #banner, #counter, #hint, #status, #error { z-index: 2; }
+/* ---------- Редактор прикраси ---------- */
+#create-btn {
+  position: fixed; left: 50%; bottom: 48px; transform: translateX(-50%); z-index: 3;
+  padding: 12px 22px; border: 0; border-radius: 999px; cursor: pointer;
+  background: #d62839; color: #fff; font-size: 16px; font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+#create-btn:hover { background: #e63a4b; }
+
+#editor {
+  position: fixed; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.6); padding: 12px; overflow: auto;
+}
+#editor form {
+  background: #1f2b4a; color: #fff; border-radius: 16px; padding: 18px;
+  width: 100%; max-width: 380px; box-sizing: border-box; max-height: 100%; overflow: auto;
+}
+#editor h2 { margin: 0 0 10px; font-size: 20px; text-align: center; }
+#editor label { display: block; margin-bottom: 10px; font-size: 13px; color: #cdd6ee; }
+#editor input[type=text], #editor input:not([type]), #editor textarea {
+  display: block; width: 100%; box-sizing: border-box; margin-top: 4px; padding: 8px 10px;
+  border: 1px solid #3c4a70; border-radius: 8px; background: #121c36; color: #fff; font: 15px system-ui;
+}
+.ed-label { font-size: 13px; color: #cdd6ee; margin-bottom: 6px; }
+#ed-preview { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 14px; box-shadow: 0 4px 12px rgba(0,0,0,.5); }
+#ed-colors { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+#ed-colors .sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+#ed-colors .sw.sel { border-color: #fff; }
+#ed-colors input[type=color] { width: 34px; height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
+.ed-check { display: flex !important; gap: 8px; align-items: flex-start; }
+.ed-check input { margin-top: 3px; }
+#ed-error { background: rgba(140,30,30,.9); padding: 8px 10px; border-radius: 8px; margin-bottom: 10px; font-size: 13px; }
+.ed-buttons { display: flex; gap: 8px; justify-content: flex-end; }
+.ed-buttons button { padding: 9px 16px; border: 0; border-radius: 8px; cursor: pointer; font-size: 14px; }
+#ed-submit { background: #2a9d8f; color: #fff; font-weight: 600; }
+#ed-submit:disabled { opacity: .6; cursor: default; }

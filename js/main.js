@@ -2,6 +2,7 @@
 import { createTreeScene } from './tree.js';
 import { addDecor } from './decor.js';
 import { renderOrnaments } from './ornaments.js';
+import { initEditor } from './editor.js';
 import { ensureSession, checkIsAdmin, fetchOrnaments, friendlyError } from './supabase.js';
 import { getPeriodState, canCreate, findMyOrnament } from './permissions.js';
 
@@ -15,6 +16,8 @@ export const state = {
   periodState: getPeriodState(),
   three: null,
 };
+
+let editor = null;
 
 function showStatus(text) {
   const el = $('status');
@@ -43,6 +46,12 @@ function renderCounter() {
   c.textContent = `Прикрас на ялинці: ${state.ornaments.length}`;
   c.classList.remove('hidden');
 }
+/** Кнопка «Створити прикрасу»: лише в період активності й коли власної прикраси ще немає */
+function updateCreateButton() {
+  const available = !!state.user &&
+    canCreate(state.periodState, findMyOrnament(state.ornaments, state.user));
+  editor.setAvailable(available);
+}
 
 async function loadData() {
   $('error').classList.add('hidden');
@@ -52,6 +61,7 @@ async function loadData() {
     state.ornaments = await fetchOrnaments();
     renderCounter();
     renderOrnaments(state.three, state.ornaments); // TREE-02
+    updateCreateButton();
     hideStatus();
     console.log('Користувач:', state.user.id, '| адмін:', state.isAdmin,
       '| може створити:', canCreate(state.periodState, findMyOrnament(state.ornaments, state.user)));
@@ -64,6 +74,14 @@ async function loadData() {
 
 async function init() {
   state.three = createTreeScene($('scene'));
+  editor = initEditor({
+    onCreated: row => {
+      state.ornaments.push(row);
+      renderCounter();
+      renderOrnaments(state.three, state.ornaments);
+      updateCreateButton();
+    },
+  });
   renderPeriodBanner();
   showStatus('Завантаження ялинки…');
 
@@ -83,7 +101,11 @@ async function init() {
   // Перемикання в режим перегляду без перезавантаження сторінки
   setInterval(() => {
     const s = getPeriodState();
-    if (s !== state.periodState) { state.periodState = s; renderPeriodBanner(); }
+    if (s !== state.periodState) {
+      state.periodState = s;
+      renderPeriodBanner();
+      updateCreateButton();
+    }
   }, 30_000);
 }
 
