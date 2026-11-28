@@ -1,4 +1,4 @@
-// MVP-редактор прикраси: кнопка + вікно з формою (CREATE-01…03, 06, 07, 08, ORN-02…06).
+// Редактор прикраси: кнопка + вікно з формою (CREATE-01…03, 06, 07, 08, ORN-02…06) + вибір місця.
 import { createOrnament, friendlyError } from './supabase.js';
 import { PATTERNS, drawPattern } from './patterns.js';
 
@@ -6,7 +6,11 @@ const COLORS = ['#d62839', '#f77f00', '#fcbf49', '#2a9d8f', '#3a86ff', '#8338ec'
 const PATTERN_COLORS = ['#ffffff', '#fcbf49', '#1d3557', '#d62839', '#2a9d8f', '#111111'];
 const PREVIEW = 192, PREVIEW_CELL = 24;   // 8 клітинок
 
-export function initEditor({ onCreated }) {
+/**
+ * pickSlot(previewRow) → Promise<індекс місця з 0 | null>
+ * onSlotTaken() — викликається, якщо обране місце встигли зайняти.
+ */
+export function initEditor({ onCreated, pickSlot, onSlotTaken }) {
   const btn = document.createElement('button');
   btn.id = 'create-btn';
   btn.className = 'hidden';
@@ -34,6 +38,11 @@ export function initEditor({ onCreated }) {
         <div class="ed-label">Колір орнаменту</div>
         <div id="ed-pcolors" class="palette"></div>
       </div>
+      <div class="ed-label">Місце на ялинці</div>
+      <div class="ed-slot">
+        <button type="button" id="ed-slot-btn">Обрати місце на ялинці</button>
+        <span id="ed-slot-info">не обрано</span>
+      </div>
       <label class="ed-check">
         <input type="checkbox" id="ed-agree" required>
         <span>Розумію, що ім'я, прізвище, група й коментар будуть видимі всім відвідувачам сайту.</span>
@@ -50,6 +59,7 @@ export function initEditor({ onCreated }) {
   let color = COLORS[0];
   let patternId = null;            // null = без орнаменту
   let pcolor = PATTERN_COLORS[0];
+  let slotIndex = null;            // індекс обраного місця (з 0)
 
   // ---------- Малювання ----------
   function paintSwatch(g, size, cell, id) {
@@ -105,14 +115,12 @@ export function initEditor({ onCreated }) {
   }
 
   function renderDropdown() {
-    // поточний вибір
     const [ci, cl] = makeItem(patternId, patternId ? PATTERNS.find(p => p.id === patternId).name : 'Без орнаменту');
     const arrow = document.createElement('span');
     arrow.textContent = '▾';
     arrow.className = 'dd-arrow';
     ddBtn.replaceChildren(ci, cl, arrow);
 
-    // варіанти
     ddList.replaceChildren();
     [{ id: null, name: 'Без орнаменту' }, ...PATTERNS].forEach(p => {
       const item = document.createElement('button');
@@ -142,6 +150,27 @@ export function initEditor({ onCreated }) {
   }
   refresh();
 
+  // ---------- Вибір місця ----------
+  function updateSlotInfo() {
+    const info = $('ed-slot-info');
+    info.textContent = slotIndex === null ? 'не обрано' : `місце №${slotIndex + 1}`;
+    info.classList.toggle('ok', slotIndex !== null);
+    $('ed-slot-btn').textContent = slotIndex === null ? 'Обрати місце на ялинці' : 'Змінити місце';
+  }
+  updateSlotInfo();
+
+  $('ed-slot-btn').onclick = async () => {
+    modal.classList.add('hidden');      // форму ховаємо, введені дані зберігаються
+    const idx = await pickSlot({
+      background_color: color,
+      pattern: patternId,
+      pattern_color: patternId ? pcolor : null,
+    });
+    modal.classList.remove('hidden');
+    if (idx !== null && idx !== undefined) slotIndex = idx;
+    updateSlotInfo();
+  };
+
   // ---------- Відкриття / закриття ----------
   function open() {
     $('ed-error').classList.add('hidden');
@@ -156,6 +185,12 @@ export function initEditor({ onCreated }) {
   document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
 
   // ---------- Відправка ----------
+  function showErr(text) {
+    const el = $('ed-error');
+    el.textContent = text;
+    el.classList.remove('hidden');
+  }
+
   $('ed-form').addEventListener('submit', async e => {
     e.preventDefault();
     const fields = {
@@ -167,10 +202,13 @@ export function initEditor({ onCreated }) {
       background_color: color,
       pattern: patternId,
       pattern_color: patternId ? pcolor : null,
+      slot: slotIndex === null ? null : slotIndex + 1,
     };
     if (!fields.first_name || !fields.last_name || !fields.group_name) {
       return showErr('Заповніть ім\'я, прізвище та групу.');
     }
+    if (fields.slot === null) return showErr('Оберіть місце на ялинці.');
+
     const submit = $('ed-submit');
     submit.disabled = true;
     submit.textContent = 'Збереження…';
@@ -181,22 +219,23 @@ export function initEditor({ onCreated }) {
       color = COLORS[0];
       patternId = null;
       pcolor = PATTERN_COLORS[0];
+      slotIndex = null;
+      updateSlotInfo();
       refresh();
       onCreated(row);
     } catch (err) {
       console.error(err);
+      if (err.code === '23505' && (err.message || '').includes('slot')) {
+        slotIndex = null;               // місце встигли зайняти
+        updateSlotInfo();
+        if (onSlotTaken) onSlotTaken();
+      }
       showErr(friendlyError(err));
     } finally {
       submit.disabled = false;
       submit.textContent = 'Опублікувати';
     }
   });
-
-  function showErr(text) {
-    const el = $('ed-error');
-    el.textContent = text;
-    el.classList.remove('hidden');
-  }
 
   /** Показує або ховає кнопку «Створити прикрасу» */
   return { setAvailable: on => btn.classList.toggle('hidden', !on) };

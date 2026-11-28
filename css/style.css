@@ -95,3 +95,43 @@ body::after {
   display: flex; flex-direction: column; gap: 2px; padding: 4px;
 }
 #ed-pat-list.hidden { display: none !important; }
+/* ---------- Картка прикраси, «Моя прикраса», вибір місця ---------- */
+.orn-card {
+  position: fixed; z-index: 4; width: 250px; box-sizing: border-box; padding: 14px 16px;
+  border-radius: 14px; background: rgba(31,43,74,.94); color: #fff;
+  box-shadow: 0 6px 24px rgba(0,0,0,.5); font: 14px system-ui;
+}
+.orn-card h3 { margin: 0 0 2px; font-size: 17px; word-break: break-word; }
+.oc-group { color: #9fb3e6; margin-bottom: 8px; }
+.oc-comment { margin: 0 0 10px; white-space: pre-wrap; word-break: break-word; color: #e8edff; }
+.oc-error { background: rgba(140,30,30,.9); padding: 6px 8px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+.oc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.oc-actions button { padding: 8px 12px; border: 0; border-radius: 8px; cursor: pointer; font-size: 13px; background: #3c4a70; color: #fff; }
+.oc-actions .oc-del { background: #b3261e; }
+.oc-actions button:disabled { opacity: .6; cursor: default; }
+@media (max-width: 699px) {
+  .orn-card { left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; }
+}
+
+#my-btn {
+  position: fixed; left: 50%; bottom: 48px; transform: translateX(-50%); z-index: 3;
+  padding: 12px 22px; border: 0; border-radius: 999px; cursor: pointer;
+  background: #f5b82e; color: #3a2a00; font-size: 16px; font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+
+#pick-bar {
+  position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 4;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
+  max-width: calc(100vw - 16px); box-sizing: border-box; padding: 10px 14px; border-radius: 14px;
+  background: rgba(31,43,74,.95); color: #fff; font: 14px system-ui; box-shadow: 0 6px 24px rgba(0,0,0,.5);
+}
+#pick-bar button { padding: 8px 14px; border: 0; border-radius: 8px; cursor: pointer; background: #3c4a70; color: #fff; }
+#pick-bar #pick-ok { background: #2a9d8f; font-weight: 600; }
+#pick-bar #pick-ok:disabled { opacity: .5; cursor: default; }
+body.picking #create-btn, body.picking #my-btn, body.picking #hint { display: none; }
+
+.ed-slot { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.ed-slot button { padding: 8px 12px; border: 0; border-radius: 8px; cursor: pointer; background: #3c4a70; color: #fff; }
+#ed-slot-info { font-size: 13px; color: #ffb4b4; }
+#ed-slot-info.ok { color: #8be0a8; }

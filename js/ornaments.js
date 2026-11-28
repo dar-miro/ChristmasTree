@@ -5,9 +5,8 @@ import { SLOTS } from './slots-config.js';
 import { PATTERN_IDS, drawPattern } from './patterns.js';
 import { ORNAMENT_RADIUS } from './scene-config.js';
 
-const RADIUS = ORNAMENT_RADIUS;
+export const RADIUS = ORNAMENT_RADIUS;
 const K = RADIUS / 0.2;   // множник для кришечки й петельки
-
 const TEX_W = 512, TEX_H = 256, TEX_CELL = 32;   // 16 клітинок по колу кульки
 const HEX = /^#[0-9a-f]{6}$/i;
 const gold = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.3 });
@@ -35,7 +34,7 @@ function fallbackSlots(treeGroup, count = 12) {
 }
 
 /** Пріоритет: slots-config.js → slot_* з моделі → автоматичні */
-function getSlots(three) {
+export function getSlots(three) {
   if (SLOTS.length) {
     return SLOTS.map((p, i) => ({
       name: 'slot_' + String(i + 1).padStart(2, '0'),
@@ -60,7 +59,7 @@ function makePatternTexture(row) {
   return tex;
 }
 
-function makeBall(row) {
+export function makeBall(row) {
   const g = new THREE.Group();
   const map = makePatternTexture(row);
   const material = new THREE.MeshStandardMaterial(
@@ -73,16 +72,47 @@ function makeBall(row) {
   cap.position.y = RADIUS + 0.02 * K;
   const loop = new THREE.Mesh(new THREE.TorusGeometry(0.04 * K, 0.01 * K, 8, 16), gold);
   loop.position.y = RADIUS + 0.09 * K;
-  g.add(ball, cap, loop);
-  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  g.userData.ornament = row;   // знадобиться для кліку (VIEW-01…04)
+  // Невидима збільшена сфера: щоб у маленьку кульку було легко влучити кліком
+  const hit = new THREE.Mesh(new THREE.SphereGeometry(RADIUS * 1.7, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+  hit.userData.isHit = true;
+  g.add(ball, cap, loop, hit);
+  g.traverse(o => { if (o.isMesh) o.castShadow = !o.userData.isHit; });
+  g.userData.ornament = row;   // для кліку (VIEW-01…04)
   return g;
 }
 
-function clearGroup(group) {
+// Золоте сяйво навколо прикраси поточного користувача
+let glowTex = null;
+function makeGlow() {
+  if (!glowTex) {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,225,120,0)');
+    grad.addColorStop(0.35, 'rgba(255,225,120,0)');
+    grad.addColorStop(0.55, 'rgba(255,214,90,0.95)');
+    grad.addColorStop(0.75, 'rgba(255,200,70,0.35)');
+    grad.addColorStop(1, 'rgba(255,200,70,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    glowTex = new THREE.CanvasTexture(c);
+    glowTex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: glowTex, transparent: true, depthWrite: false, toneMapped: false,
+  }));
+  s.scale.setScalar(RADIUS * 5.4);
+  s.renderOrder = 5;
+  s.raycast = () => {};   // сяйво не перехоплює кліки
+  return s;
+}
+
+export function clearGroup(group) {
   for (const child of [...group.children]) {
     group.remove(child);
     child.traverse(o => {
+      if (o.isSprite) o.material.dispose();
       if (o.isMesh) {
         o.geometry.dispose();
         if (o.material !== gold) {
@@ -94,19 +124,55 @@ function clearGroup(group) {
   }
 }
 
-/** Малює всі прикраси з бази. Викликається після кожної зміни списку. */
-export function renderOrnaments(three, ornaments) {
+/** Розкладає прикраси по місцях: за row.slot; без коректного slot — у перше вільне. */
+export function layoutOrnaments(ornaments, count) {
+  const taken = new Set();
+  const placed = [];
+  const loose = [];
+  for (const row of ornaments) {
+    const i = row.slot - 1;
+    if (Number.isInteger(i) && i >= 0 && i < count && !taken.has(i)) {
+      taken.add(i);
+      placed.push({ row, index: i });
+    } else loose.push(row);
+  }
+  let next = 0;
+  for (const row of loose) {
+    while (taken.has(next)) next++;
+    if (next >= count) {
+      console.warn(`Прикрас більше, ніж місць (${count}). Зайві не показано.`);
+      break;
+    }
+    taken.add(next);
+    placed.push({ row, index: next });
+  }
+  return { placed, taken };
+}
+
+/** Індекси (з 0) вільних місць */
+export function freeSlotIndexes(three, ornaments) {
+  const slots = getSlots(three);
+  const { taken } = layoutOrnaments(ornaments, slots.length);
+  return slots.map((_, i) => i).filter(i => !taken.has(i));
+}
+
+/** Малює всі прикраси. myUserId — для підсвічування власної прикраси. */
+export function renderOrnaments(three, ornaments, myUserId = null) {
   clearGroup(three.ornamentsGroup);
   const slots = getSlots(three);
-  if (ornaments.length > slots.length) {
-    console.warn(`Прикрас (${ornaments.length}) більше, ніж місць (${slots.length}). Зайві не показано.`);
-  }
-  ornaments.slice(0, slots.length).forEach((row, i) => {
+  const { placed } = layoutOrnaments(ornaments, slots.length);
+  placed.forEach(({ row, index }) => {
     const mesh = makeBall(row);
-    mesh.position.copy(slots[i].position);
+    mesh.position.copy(slots[index].position);
+    if (myUserId && row.user_id === myUserId) {
+      const glow = makeGlow();
+      mesh.add(glow);
+      mesh.userData.glow = glow;
+    }
     three.ornamentsGroup.add(mesh);
   });
 }
+
 /** Каркасний «привид» прикраси (кулька + кришечка + петелька) для редактора слотів. */
 export function makeGhost(color = 0xffe14d) {
   const mat = new THREE.MeshBasicMaterial({

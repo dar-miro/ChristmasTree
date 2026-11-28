@@ -3,13 +3,14 @@ import { createTreeScene } from './tree.js';
 import { addDecor } from './decor.js';
 import { renderOrnaments } from './ornaments.js';
 import { initEditor } from './editor.js';
+import { createViewer } from './viewer.js';
 import { ensureSession, checkIsAdmin, fetchOrnaments, friendlyError } from './supabase.js';
 import { getPeriodState, canCreate, findMyOrnament } from './permissions.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 
-// Спільний стан застосунку. Наступні модулі (редактор, прикраси) читатимуть його.
+// Спільний стан застосунку.
 export const state = {
   user: null,
   isAdmin: false,
@@ -19,6 +20,7 @@ export const state = {
 };
 
 let editor = null;
+let viewer = null;
 
 function showStatus(text) {
   const el = $('status');
@@ -49,13 +51,24 @@ function renderCounter() {
 }
 function redraw() {
   renderCounter();
-  renderOrnaments(state.three, state.ornaments); // TREE-02
+  renderOrnaments(state.three, state.ornaments, state.user?.id); // TREE-02
+  viewer.update();
 }
 /** Кнопка «Створити прикрасу»: лише в період активності й коли власної прикраси ще немає */
 function updateCreateButton() {
   const available = !!state.user &&
     canCreate(state.periodState, findMyOrnament(state.ornaments, state.user));
   editor.setAvailable(available);
+}
+
+async function refreshOrnaments() {
+  try {
+    state.ornaments = await fetchOrnaments();
+    redraw();
+    updateCreateButton();
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function loadData() {
@@ -78,13 +91,27 @@ async function loadData() {
 
 async function init() {
   state.three = createTreeScene($('scene'));
-  editor = initEditor({
-    onCreated: row => {
-      state.ornaments.push(row);
+
+  viewer = createViewer(state.three, {
+    getCtx: () => state,
+    onDeleted: id => {
+      state.ornaments = state.ornaments.filter(o => o.id !== id);
       redraw();
       updateCreateButton();
     },
   });
+
+  editor = initEditor({
+    pickSlot: row => viewer.pickSlot(row),
+    onSlotTaken: refreshOrnaments,
+    onCreated: row => {
+      state.ornaments.push(row);
+      redraw();
+      updateCreateButton();
+      viewer.focusOrnament(row.id);   // летимо до нової прикраси
+    },
+  });
+
   renderPeriodBanner();
   showStatus('Завантаження ялинки…');
 

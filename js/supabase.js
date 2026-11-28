@@ -7,13 +7,16 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 // Поля, які клієнт має право надсилати. user_id і id підставляє сама база.
 const ALLOWED_FIELDS = [
   'first_name', 'last_name', 'group_name', 'comment',
-  'shape', 'background_color', 'pattern', 'pattern_color', 'texture_url'
+  'shape', 'background_color', 'pattern', 'pattern_color', 'texture_url', 'slot'
 ];
 
 /** Перетворює помилку бази на зрозуміле повідомлення. */
 export function friendlyError(error) {
   if (!error) return 'Невідома помилка';
-  if (error.code === '23505') return 'У вас уже є прикраса на ялинці. Видаліть її, щоб створити нову.';
+  if (error.code === '23505') {
+    if ((error.message || '').includes('slot')) return 'Це місце вже зайняте. Оберіть інше.';
+    return 'У вас уже є прикраса на ялинці. Видаліть її, щоб створити нову.';
+  }
   if (error.code === '42501') return 'Дію заборонено: вона недоступна для вашого облікового запису або поза періодом активності.';
   if (error.code === '23514') return 'Деякі поля заповнені некоректно.';
   if (error.message === 'Failed to fetch') return 'Немає зв’язку з базою даних.';
